@@ -30,33 +30,7 @@ or build step is required — it runs directly from a static file server.
 
 ---
 
-## 3. Server Deployment
 
-1. Create a folder on your web server (any static host — Nginx, Apache,
-   S3 + CloudFront, GitHub Pages, etc. all work).
-2. Copy the following into that folder, **at the same directory level**
-   (the loader resolves them as relative paths):
-   ```
-   /koru_the_fight_for_eden_AAA-4.html
-   /ZYTHERON_CRAFT.glb
-   /koru.glb            (your asset)
-   /splashscreen.jpg     (your asset)
-   ```
-3. Optionally rename `koru_the_fight_for_eden_AAA-4.html` to `index.html`
-   if you want it to load at the folder root.
-4. Serve over HTTP/HTTPS. **Do not open the file directly via `file://`** —
-   browsers block local GLTF/texture fetches under the `file://` protocol.
-   A minimal local test server works too, e.g.:
-   ```
-   python3 -m http.server 8080
-   ```
-5. Visit the folder URL. The splash screen (`splashscreen.jpg`) will
-   display with an **Enter** button leading to the mission dossier /
-   loadout screen, then into gameplay.
-
----
-
-## 4. Runtime Dependencies (CDN)
 
 The client loads the following at runtime — an internet connection is
 required for first load unless these are vendored locally:
@@ -66,9 +40,6 @@ required for first load unless these are vendored locally:
 - Tailwind CDN build (`cdn.tailwindcss.com`)
 - Google Fonts: Orbitron, Rajdhani, JetBrains Mono (`fonts.googleapis.com`)
 
-For fully offline / air-gapped deployment, download these libraries and
-update the `<script src>` / `<link href>` paths in the HTML `<head>` to
-point at local copies.
 
 ---
 
