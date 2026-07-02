@@ -130,15 +130,20 @@
     .char-card-lg:hover{ transform:translateY(-3px); }
     .char-card-lg.selected{ border-color:var(--bio); box-shadow:0 0 26px rgba(47,214,168,0.45); }
     .char-preview{ width:100%; aspect-ratio:3 / 2; height:170px; border-radius:2px; background:radial-gradient(ellipse at 50% 60%, rgba(47,214,168,0.10), rgba(0,0,0,0.5) 80%); border:1px solid rgba(255,255,255,0.1); margin-bottom:10px; overflow:hidden; position:relative; }
-    .char-preview canvas{ width:100% !important; height:100% !important; display:block; }
-    .char-preview .preview-loading{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-dim); letter-spacing:0.1em; }
+    .char-preview img{ width:100%; height:100%; object-fit:cover; object-position:center 30%; display:block; filter:saturate(1.05) contrast(1.05); transition:transform 0.4s ease; }
+    .char-card-lg:hover .char-preview img{ transform:scale(1.05); }
+    .char-preview::after{ content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%); pointer-events:none; }
+    .char-preview .preview-tag{ position:absolute; bottom:6px; left:8px; z-index:2; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:0.15em; color:var(--ink); text-shadow:0 0 6px rgba(0,0,0,0.9); }
     .char-name{ font-family:'Orbitron',sans-serif; font-size:15px; letter-spacing:0.06em; color:var(--bio); font-weight:800; }
     .char-tagline{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-dim); letter-spacing:0.06em; margin-top:2px; }
-    .char-bio{ font-size:12px; line-height:1.4; color:var(--ink-dim); margin-top:8px; max-height:88px; overflow-y:auto; }
+    .char-bio{ font-size:13px; line-height:1.55; color:var(--ink); margin-top:8px; max-height:none; overflow-y:visible; text-shadow:0 1px 2px rgba(0,0,0,0.4); }
     .char-bio::-webkit-scrollbar{ width:4px; }
     .char-bio::-webkit-scrollbar-thumb{ background:var(--bio-dim); }
-    .char-stats{ display:flex; gap:10px; margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--ink-dim); }
+    .char-stats{ display:flex; gap:10px; margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--ink-dim); }
     .char-stats span b{ color:var(--bio); display:block; font-size:12px; }
+    .char-card-lg{ width:300px; }
+    .mission-brief{ color:var(--ink); font-size:14px; line-height:1.6; }
+    .mission-brief p{ color:var(--ink) !important; }
 </style>
 </head>
 <body>
@@ -254,7 +259,7 @@
         <h1 class="font-display title-glow text-6xl md:text-7xl font-black tracking-tight" style="color:var(--bio);">KORU</h1>
         <h2 class="text-xl md:text-2xl font-semibold tracking-[0.3em] mt-2" style="color:var(--ink-dim);">THE FIGHT FOR EDEN</h2>
 
-        <div class="hud-panel panel-cut mt-6 mx-auto p-4 text-left font-mono text-sm max-w-lg" style="color:var(--ink-dim);">
+        <div class="hud-panel panel-cut mt-6 mx-auto p-4 text-left font-mono text-sm max-w-lg mission-brief">
             <p style="color:var(--bio);">&gt; INCOMING TRANSMISSION<span class="term-blink"></span></p>
             <p class="mt-2">The Zytheron Hive-Mind has overtaken the surface. Two paths remain into the jungle canopy: a neural-linked bio-frame, or a stolen fleet interceptor turned traitor to its makers.</p>
             <p class="mt-2">Advance sector by sector. Purge the hosts. Silence the Sovereign at the Core.</p>
@@ -266,7 +271,8 @@
 
                 <button id="btn-char-koru" class="char-card-lg selected">
                     <div class="char-preview" id="preview-koru">
-                        <div class="preview-loading" id="preview-koru-loading">CALIBRATING MODEL...</div>
+                        <img src="koru.jpg" alt="Koru bio-mech reclamation frame">
+                        <div class="preview-tag">UNIT-01 // BIO-FRAME</div>
                     </div>
                     <div class="char-name">KORU</div>
                     <div class="char-tagline">BIO-MECH RECLAMATION FRAME</div>
@@ -280,7 +286,8 @@
 
                 <button id="btn-char-zytheron" class="char-card-lg">
                     <div class="char-preview" id="preview-zytheron">
-                        <div class="preview-loading" id="preview-zytheron-loading">CALIBRATING MODEL...</div>
+                        <img src="zytheroncraft.jpg" alt="Zytheron Void-9 defected fleet interceptor">
+                        <div class="preview-tag">UNIT-02 // VOID-9</div>
                     </div>
                     <div class="char-name" style="color:var(--hive);">ZYTHERON // VOID-9</div>
                     <div class="char-tagline">DEFECTED FLEET INTERCEPTOR</div>
@@ -800,13 +807,10 @@ gltfLoader.load(
         loadedGLB = gltf.scene;
         loadedAnimations = gltf.animations;
         koruNaturalInfo = measureNaturalBBox(loadedGLB);
-        spawnOrbitPreview('preview-koru', loadedGLB, koruNaturalInfo, null);
     },
     undefined,
     (error) => {
         console.warn('Could not load koru.glb. Falling back to the procedural bio-frame.', error);
-        const el = document.getElementById('preview-koru-loading');
-        if (el) el.innerText = "MODEL NOT FOUND\n(procedural fallback active)";
     }
 );
 
@@ -816,123 +820,17 @@ gltfLoader.load(
         zytheronGLB = gltf.scene;
         zytheronAnimations = gltf.animations;
         zytheronNaturalInfo = measureNaturalBBox(zytheronGLB);
-        spawnOrbitPreview('preview-zytheron', zytheronGLB, zytheronNaturalInfo, 0x2fd6a8);
     },
     undefined,
     (error) => {
         console.warn('Could not load zytheroncraft.glb. Falling back to procedural geometry.', error);
-        const el = document.getElementById('preview-zytheron-loading');
-        if (el) el.innerText = "MODEL NOT FOUND\n(procedural fallback active)";
     }
 );
-
-// --- Orbiting mini-viewport for each character card (own renderer/scene/camera) ---
-// The render surface is locked to a fixed 3:2 aspect (matching .char-preview's
-// CSS aspect-ratio) rather than trusting clientWidth/clientHeight at spawn
-// time -- the container can still be display:none behind the splash screen
-// when the .glb finishes loading, which would otherwise lock in a wrong
-// guessed size. resizeOrbitPreviews() re-syncs the true size once the
-// container becomes visible and on every window resize afterwards, so the
-// turntable never stretches or letterboxes unexpectedly.
-const ORBIT_PREVIEW_ASPECT = 3 / 2;
-const ORBIT_PREVIEW_FALLBACK_W = 260;
-const orbitPreviews = [];
-function spawnOrbitPreview(containerId, sourceScene, naturalInfo, tintHex) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    const loadingEl = document.getElementById(containerId + '-loading');
-    if (loadingEl) loadingEl.remove();
-
-    const w = container.clientWidth || ORBIT_PREVIEW_FALLBACK_W;
-    const h = Math.round(w / ORBIT_PREVIEW_ASPECT);
-    const pRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    pRenderer.setSize(w, h);
-    pRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    pRenderer.outputEncoding = THREE.sRGBEncoding;
-    container.appendChild(pRenderer.domElement);
-
-    const pScene = new THREE.Scene();
-    const pCamera = new THREE.PerspectiveCamera(32, ORBIT_PREVIEW_ASPECT, 0.1, 100);
-
-    const pAmbient = new THREE.AmbientLight(0xffffff, 0.7);
-    pScene.add(pAmbient);
-    const pKey = new THREE.DirectionalLight(0xffffff, 1.1);
-    pKey.position.set(3, 6, 4);
-    pScene.add(pKey);
-    const pRim = new THREE.PointLight(tintHex || 0x2fd6a8, 1.2, 20);
-    pRim.position.set(-3, 2, -3);
-    pScene.add(pRim);
-
-    // Normalize every preview asset to the same display height so lighting
-    // and turntable speed feel consistent, then measure the ACTUAL
-    // instantiated bounding sphere and solve camera distance/height from
-    // that measurement. This replaces hand-tuned constants that only
-    // happened to look right for one specific model -- any asset (tall and
-    // thin, or wide and squat) now gets fit and centered solidly in frame.
-    const inst = instantiateModel(sourceScene, naturalInfo, 2.4);
-    if (tintHex) tintModelEmissive(inst.model, tintHex, 0.5);
-    pScene.add(inst.wrapper);
-
-    const box = new THREE.Box3().setFromObject(inst.wrapper);
-    const center = box.getCenter(new THREE.Vector3());
-    const sphere = box.getBoundingSphere(new THREE.Sphere());
-    const radius = Math.max(0.001, sphere.radius);
-
-    // Re-center on the turntable's rotation axis (X/Z) but leave Y alone --
-    // the model stays grounded at y=0 from instantiateModel().
-    inst.wrapper.position.x -= center.x;
-    inst.wrapper.position.z -= center.z;
-    const fitCenter = new THREE.Vector3(0, center.y, 0);
-
-    // Distance required for the vertical FOV to solidly contain the
-    // bounding sphere, plus ~18% padding so the asset doesn't touch frame edges.
-    const fovRad = THREE.MathUtils.degToRad(pCamera.fov);
-    const fitDistance = Math.max((radius / Math.sin(fovRad / 2)) * 1.18, radius * 1.6);
-
-    pCamera.position.set(0, fitCenter.y + radius * 0.28, fitDistance);
-    pCamera.lookAt(fitCenter);
-
-    orbitPreviews.push({
-        renderer: pRenderer, scene: pScene, camera: pCamera,
-        group: inst.wrapper, angle: Math.random() * Math.PI * 2,
-        container
-    });
-}
-function resizeOrbitPreviews() {
-    for (let i = 0; i < orbitPreviews.length; i++) {
-        const p = orbitPreviews[i];
-        const w = p.container.clientWidth || ORBIT_PREVIEW_FALLBACK_W;
-        if (w === 0) continue; // still hidden behind splash screen -- skip until visible
-        const h = Math.round(w / ORBIT_PREVIEW_ASPECT);
-        p.renderer.setSize(w, h);
-        p.camera.aspect = ORBIT_PREVIEW_ASPECT;
-        p.camera.updateProjectionMatrix();
-    }
-}
-window.addEventListener('resize', resizeOrbitPreviews);
-function updateOrbitPreviews(dt) {
-    for (let i = 0; i < orbitPreviews.length; i++) {
-        const p = orbitPreviews[i];
-        p.angle += dt * 0.5;
-        p.group.rotation.y = p.angle;
-        p.renderer.render(p.scene, p.camera);
-    }
-}
-let orbitPreviewRAF = null;
-function orbitPreviewLoop(time) {
-    orbitPreviewRAF = requestAnimationFrame(orbitPreviewLoop);
-    updateOrbitPreviews(1 / 60);
-}
-orbitPreviewRAF = requestAnimationFrame(orbitPreviewLoop);
 
 // --- Splash screen -> character select ---
 document.getElementById('enter-btn').addEventListener('click', () => {
     document.getElementById('splash-screen').classList.add('hidden');
     document.getElementById('start-screen').classList.remove('hidden');
-    // Container was display:none (clientWidth 0) until now -- re-measure and
-    // resize the orbit previews so they render at their real, correctly
-    // proportioned size instead of the spawn-time fallback guess.
-    requestAnimationFrame(resizeOrbitPreviews);
 });
 
 // --- Character selection cards ---
@@ -1966,7 +1864,6 @@ let player;
 
 function startGame() {
     if (menuAnimId) { cancelAnimationFrame(menuAnimId); menuAnimId = null; }
-    if (orbitPreviewRAF) { cancelAnimationFrame(orbitPreviewRAF); orbitPreviewRAF = null; }
 
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
