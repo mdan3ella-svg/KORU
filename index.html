@@ -1154,10 +1154,19 @@ class Player {
                 this.mixer = new THREE.AnimationMixer(this.model);
                 const clipIdle = findClipLoose(loadedAnimations, ['idle']) || loadedAnimations[0];
                 const clipWalk = findClipLoose(loadedAnimations, ['sneak walk', 'sneak', 'walk', 'run', 'move']) || loadedAnimations[1] || loadedAnimations[0];
+                const clipDash = findClipLoose(loadedAnimations, ['dash', 'sprint', 'dodge', 'roll']);
+                const clipJump = findClipLoose(loadedAnimations, ['jump', 'leap', 'hop']);
+                const clipHit = findClipLoose(loadedAnimations, ['hit', 'flinch', 'hurt', 'damage']);
+                const clipDeath = findClipLoose(loadedAnimations, ['death', 'die']);
                 this.animIdle = this.mixer.clipAction(clipIdle);
                 this.animWalk = this.mixer.clipAction(clipWalk);
+                this.animDash = clipDash ? this.mixer.clipAction(clipDash) : null;
+                this.animJump = clipJump ? this.mixer.clipAction(clipJump) : null;
+                this.animHit = clipHit ? this.mixer.clipAction(clipHit) : null;
+                this.animDeath = clipDeath ? this.mixer.clipAction(clipDeath) : null;
                 this.animIdle.play();
                 this.currentAnim = this.animIdle;
+                this._setupOneShotFinishListener();
             }
             this.torso = { rotation: { x: 0 } };
         } else if (charType === 2 && zytheronGLB) {
@@ -1170,10 +1179,19 @@ class Player {
             if (zytheronAnimations && zytheronAnimations.length > 0) {
                 this.mixer = new THREE.AnimationMixer(this.model);
                 const clip = zytheronAnimations[0];
-                this.animIdle = this.mixer.clipAction(clip);
-                this.animWalk = this.mixer.clipAction(zytheronAnimations[1] || clip);
+                this.animIdle = this.mixer.clipAction(findClipLoose(zytheronAnimations, ['idle']) || clip);
+                this.animWalk = this.mixer.clipAction(findClipLoose(zytheronAnimations, ['fly', 'move', 'thrust']) || zytheronAnimations[1] || clip);
+                const clipDash = findClipLoose(zytheronAnimations, ['dash', 'boost', 'evade', 'dodge']);
+                const clipJump = findClipLoose(zytheronAnimations, ['jump', 'launch', 'ascend']);
+                const clipHit = findClipLoose(zytheronAnimations, ['hit', 'flinch', 'hurt', 'damage']);
+                const clipDeath = findClipLoose(zytheronAnimations, ['death', 'die', 'destroy', 'explode']);
+                this.animDash = clipDash ? this.mixer.clipAction(clipDash) : null;
+                this.animJump = clipJump ? this.mixer.clipAction(clipJump) : null;
+                this.animHit = clipHit ? this.mixer.clipAction(clipHit) : null;
+                this.animDeath = clipDeath ? this.mixer.clipAction(clipDeath) : null;
                 this.animIdle.play();
                 this.currentAnim = this.animIdle;
+                this._setupOneShotFinishListener();
             }
             this.torso = { rotation: { x: 0 } };
         } else {
@@ -1279,6 +1297,35 @@ class Player {
         this.dashTimer = 0;
     }
 
+    // Registers a single mixer-wide 'finished' listener that clears the
+    // one-shot flag once whatever one-shot clip (jump/hit) finishes, handing
+    // control back to the regular idle/walk/dash state machine. Death clips
+    // intentionally never clear this -- health<=0 makes update() bail out
+    // before the state machine runs again, so the last frame just holds.
+    _setupOneShotFinishListener() {
+        if (!this.mixer) return;
+        this.mixer.addEventListener('finished', (e) => {
+            if (e.action === this._activeOneShot) {
+                this._oneShotPlaying = false;
+                this._activeOneShot = null;
+            }
+        });
+    }
+
+    // Plays a clip once (no loop), holding its final pose, then reports back
+    // to the idle/walk/dash loop via the 'finished' listener above.
+    _playOneShot(action) {
+        if (!action || !this.mixer) return;
+        action.reset();
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true;
+        action.fadeIn(0.08).play();
+        if (this.currentAnim && this.currentAnim !== action) this.currentAnim.fadeOut(0.08);
+        this.currentAnim = action;
+        this._oneShotPlaying = true;
+        this._activeOneShot = action;
+    }
+
     update(dt) {
         if (this.health <= 0) return;
 
@@ -1301,8 +1348,11 @@ class Player {
         const isMoving = inputDir.lengthSq() > 0;
         if (isMoving) inputDir.normalize();
 
-        if (this.mixer) {
-            const targetAnim = (isMoving || this.isDashing) ? this.animWalk : this.animIdle;
+        if (this.mixer && !this._oneShotPlaying) {
+            let targetAnim;
+            if (this.isDashing && this.animDash) targetAnim = this.animDash;
+            else if (isMoving || this.isDashing) targetAnim = this.animWalk;
+            else targetAnim = this.animIdle;
             if (this.currentAnim !== targetAnim) {
                 targetAnim.reset().fadeIn(0.2).play();
                 if (this.currentAnim) this.currentAnim.fadeOut(0.2);
@@ -1315,6 +1365,7 @@ class Player {
         if (keys.space && this.isGrounded) {
             this.velocity.y = 15;
             this.isGrounded = false;
+            if (this.animJump) this._playOneShot(this.animJump);
             if (keys.w) emitParticles(this.position, 0x2fd6a8, 15, 10, 'exhaust');
         }
 
@@ -1447,7 +1498,12 @@ class Player {
         flashDamage();
         addShake(0.25, 0.2);
 
-        if (this.health <= 0) gameOver();
+        if (this.health <= 0) {
+            if (this.animDeath) this._playOneShot(this.animDeath);
+            gameOver();
+        } else if (this.animHit) {
+            this._playOneShot(this.animHit);
+        }
     }
 }
 
