@@ -1242,6 +1242,15 @@ class Player {
             // --- KORU (option A): loaded koru.glb, normalized to standard height ---
             const inst = instantiateModel(loadedGLB, koruNaturalInfo, PLAYER_TARGET_HEIGHT);
             this.model = inst.model;
+            // koru.glb's authored "front" faces the opposite way from this engine's
+            // -Z-forward convention (this.group.lookAt() below always turns the RIG
+            // to face -Z toward the aim target -- it's the mesh itself that was
+            // pointing backward inside that rig). Same fix already applied to the
+            // Zytheron craft below (see "face forward toward -Z by convention").
+            // Without this, shots still fire correctly toward the cursor (shootDir
+            // is computed straight from aimTarget - position, independent of mesh
+            // orientation) while Koru visually appears to fire out of his back.
+            inst.wrapper.rotation.y = Math.PI;
             this.group.add(inst.wrapper);
 
             if (loadedAnimations && loadedAnimations.length > 0) {
