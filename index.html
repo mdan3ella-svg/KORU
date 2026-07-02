@@ -369,8 +369,51 @@ function findClipLoose(clips, candidates) {
 // koru.glb scale-ratio bug -- the box was measured in stale, pre-transform
 // local space instead of true world space, producing the wrong height and
 // therefore the wrong scale factor.
+//
+// koru.glb specifically needs the skin-aware path below: it's a rigged
+// Mixamo-style character where the raw mesh vertex data and the bone
+// hierarchy were authored/exported at two different internal unit scales,
+// reconciled only through the skin's inverse-bind matrices at render time.
+// A plain Box3().setFromObject() reads the UN-skinned static vertex
+// positions through the mesh node's own ancestor transform only -- for this
+// file that measures a ~0.03-unit, wrong-axis sliver instead of the correct
+// ~1.7-1.9m standing character, which would blow the uniform scale factor
+// up by roughly 60x. measureSkinAwareBBox() walks the same boneTransform()
+// code path three.js itself uses for skinned raycasting, so it reflects the
+// real, currently-posed geometry.
+function measureSkinAwareBBox(object) {
+    const skinnedMeshes = [];
+    object.traverse((node) => { if (node.isSkinnedMesh) skinnedMeshes.push(node); });
+    if (skinnedMeshes.length === 0) return null; // static mesh (e.g. the Zytheron craft) -- caller falls back to plain Box3
+
+    const box = new THREE.Box3();
+    const v = new THREE.Vector3();
+    for (const mesh of skinnedMeshes) {
+        if (mesh.skeleton) mesh.skeleton.update();
+        const posAttr = mesh.geometry.attributes.position;
+        if (!posAttr) continue;
+        // Sample rather than visiting every vertex on dense meshes -- a few
+        // thousand samples across the mesh is plenty to get an accurate
+        // silhouette bounding box for scale purposes.
+        const step = Math.max(1, Math.floor(posAttr.count / 4000));
+        for (let i = 0; i < posAttr.count; i += step) {
+            mesh.boneTransform(i, v);
+            v.applyMatrix4(mesh.matrixWorld);
+            box.expandByPoint(v);
+        }
+    }
+    if (box.isEmpty()) return null;
+    return {
+        min: box.min.clone(), max: box.max.clone(),
+        height: Math.max(0.001, box.max.y - box.min.y),
+        sizeX: Math.max(0.001, box.max.x - box.min.x),
+        sizeZ: Math.max(0.001, box.max.z - box.min.z)
+    };
+}
 function measureNaturalBBox(object) {
     object.updateMatrixWorld(true);
+    const skinAware = measureSkinAwareBBox(object);
+    if (skinAware) return skinAware;
     const box = new THREE.Box3().setFromObject(object);
     return {
         min: box.min.clone(), max: box.max.clone(),
